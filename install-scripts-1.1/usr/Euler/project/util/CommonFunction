@@ -1,0 +1,212 @@
+#!/bin/bash
+# Description: the common function used by others
+
+################################################################
+# Description: get the number of CPU cores and judge whether the
+#              management task is allowed to be bound
+# Parameter:   none
+# Return:      0-no binding, 1-bindling
+################################################################
+function OS_IS_ALLOW_BIND_CPU0()
+{
+    local L_RET=0
+    local L_CPU_NUM=0
+    local OS_CPU_MIN_NUM_ALLOW_BIND0=8
+
+    L_CPU_NUM=`cat /proc/cpuinfo | grep "processor" | wc -l`
+    if [ "${L_CPU_NUM}" -gt "${OS_CPU_MIN_NUM_ALLOW_BIND0}" ]; then
+        return 1
+    fi
+
+    return 0
+}
+
+################################################################
+# Description:    Execute user's custom hook
+# Parameter:      param1:hookdir
+# Return:         0-success, 1-fail
+################################################################
+function INIT_Execute_Hook()
+{
+    local hookdir=$1
+    local num=
+    local installbreak=
+    local hookbase=
+    local cmdline=/proc/cmdline
+    local ret=0
+
+    installbreak="`INIT_Get_CmdLineParamValue 'install_break' ${cmdline}`"
+    hookbase="`basename ${hookdir}`"
+    g_LOG_Notice "installbreak=${installbreak}, hookbase=${hookbase}"
+    num=`ls ${hookdir}/S* 2>/dev/null | wc -l`
+
+    shift 1
+
+    g_LOG_Notice "Executing ${hookdir} ..."
+
+    if [ ! -d "${hookdir}" -o "${num}" == 0 ]; then
+        g_LOG_Warn "no hook directory or no scripts in hook directory ${hookdir}."
+        ret=0
+    else
+        chmod +x ${hookdir}/S* > /dev/null 2>&1
+        dos2unix ${hookdir}/S* > /dev/null2 >&1
+
+        for tmpScript in $(ls ${hookdir}/S*)
+        do
+            if [ -x "${tmpScript}" ]; then
+                source ${tmpScript} $@
+                if [ $? -ne 0 ]; then
+                    g_LOG_Error "Execute ${tmpScript} failed."
+                    ret=1
+                else
+                    g_LOG_Info "Execute ${tmpScript} success."
+                fi
+            fi
+        done
+    fi
+
+    if [ "x${installbreak}" == "x${hookbase}" ]; then
+        g_LOG_Notice "Entering break point ${installbreak}, break out."
+        exit 1
+    fi
+
+    return ${ret}
+}
+
+################################################################
+# Description:    Get disk device
+# Parameter:      none
+# Return:         disk device list
+################################################################
+function DM_GetDiskList()
+{
+    local disk_list=
+    local disk_name=
+    local disk_type=
+    local i=
+    local tmp_disk_list=
+    local tmp_disk_name=
+
+    if [ ! -z "`ls -l /sys/block | grep -w "xen"`" ]; then
+        #special operation for xen virtual machine
+        disk_list=(`hwinfo --disk --short 2>&1 | grep -vi "^disk" | awk '{print $1}' | grep "xvd" | sort`)
+    elif [ ! -z "`ls -l /sys/block | grep "md"`" ]; then
+        #special operation for md machine
+        tmp_disk_list=(`cat /proc/partitions | awk -F ' ' '{print $4}' | grep "^md" | grep -v "p" | sort`)
+        for tmp_disk in ${tmp_disk_list[*]}
+        do
+            tmp_disk_name=/dev/${tmp_disk}
+	    disk_list[${#disk_list[*]}]=${tmp_disk_name}
+        done
+    else
+        #get disk devices
+        disk_list=(`hwinfo --disk --short 2>&1 | grep -vi "^disk" | awk '{print $1}' | sort`)
+    fi
+    if [ "${#disk_list[*]}" -lt 1 ]; then
+        g_LOG_Error "Get hard disk information failed."
+        return 1
+    fi
+
+    #make sure if it is a real disk
+    for ((i = ${#disk_list[*]} - 1; i >= 0; i--))
+    do
+        disk_name="`echo ${disk_list[$i]} | awk -F "/" '{print $NF}'`"
+        disk_type="`lsblk -f ${disk_list[$i]} 2>&1 | grep -vi "NAME" | awk '{print $2}'`"
+
+        if [ -z "${disk_name}" ] \
+            || [ -z "`cat /proc/partitions | grep ${disk_name}`" ] \
+            || [ ! -z "`echo ${disk_type} | grep -i "iso9660"`" ]; then
+            g_LOG_Warn "${disk_name} is not a real disk, unset it."
+            unset disk_list[$i]
+            continue
+        fi
+    done
+
+    #check disk devices count
+    if [ "${#disk_list[*]}" -lt 1 ]; then
+        g_LOG_Error "No hard disk"
+        return 2
+    fi
+
+    echo "${disk_list[*]}"
+    return 0
+}
+
+################################################################
+# Description:    Get first disk device
+# Parameter:      none
+# Return:         first disk device
+################################################################
+function DM_Get_FirstDiskName()
+{
+    local first_disk=
+    #get first disk name
+    local tmpDisk="`DM_GetDiskList`"
+    if [ $? -ne 0 ]; then
+        g_LOG_Error "get disk list failed."
+        return 1
+    fi
+
+    first_disk="`echo ${tmpDisk} | awk '{print $1}'`"
+
+    echo "${first_disk}"
+
+    return 0
+}
+
+################################################################
+# Description:    Get cmdline value
+# Parameter:      param1: param name
+#                 param2: file name
+# Return:         0-success, 1-failed
+################################################################
+function INIT_Get_CmdLineParamValue()
+{
+    local curParam=
+    local fileName=$2
+    local param=$1
+
+    if [ -z "${param}" ]; then
+        echo ""
+        return 1
+    fi
+
+    for var in $(cat "${fileName}")
+    do
+        curParam=`echo "${var}" | awk -F '=' '{print $1}'`
+        if [ "${param}" == "${curParam}" ]; then
+            echo `echo ${var} | sed "s/${curParam}\=//g"`
+            return 0
+        fi
+    done
+
+    echo ""
+    return 1
+}
+
+################################################################
+# Description:    Set LOCAL_SOURCE_PATH
+# Parameter:      param1: Set LOCAL_SOURCE_PATH by user's download
+#                 path. OS.tar.gz and OS.tar.gz.sha256 should be
+#                 in this directory.
+# Return:         0-success, 1-failed
+################################################################
+function Set_LocalSourcePath()
+{
+    local downloadpath="$1"
+
+    #input check
+    if [ -z "${downloadpath}" ]; then
+        g_LOG_Error "Input is null, can't get download path"
+        return 1
+    fi
+
+    LOCAL_SOURCE_PATH=${downloadpath}
+    mkdir -p ${LOCAL_SOURCE_PATH}
+    if [ $? -ne 0 ]; then
+        g_LOG_Error "mkdir ${LOCAL_SOURCE_PATH} failed."
+        return 1
+    fi
+
+    return 0
+}

@@ -1,0 +1,9 @@
+[Unit]
+Description=Initrd Euler Default Target
+OnFailure=emergency.target
+OnFailureIsolate=yes
+After=systemd-vconsole-setup.service
+AllowIsolate=yes
+
+[Install]
+Alias=default.target

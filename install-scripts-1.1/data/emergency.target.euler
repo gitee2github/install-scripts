@@ -1,0 +1,5 @@
+[Unit]
+Description=Minios Shell
+Requires=emergency.service
+After=emergency.service
+AllowIsolate=yes
