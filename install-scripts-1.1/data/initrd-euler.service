@@ -1,0 +1,13 @@
+[Unit]
+Description=Euler Linux Setup Service
+DefaultDependencies=no
+OnFailure=emergency.target
+Conflicts=serial-getty@ttyS0.service
+Wants=systemd-udev-settle.service
+After=systemd-vconsole-setup.service systemd-udev-settle.service
+
+[Service]
+Environment=PATH=/usr/bin:/bin:/sbin:/usr:/usr/sbin
+Type=simple
+ExecStart=/usr/Euler/project/init/LinuxSetup.sh
+StandardInput=tty-force
