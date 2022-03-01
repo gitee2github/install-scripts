@@ -1,6 +1,19 @@
-#!/bin/bash
+:<<!
+ * Copyright (c) Huawei Technologies Co., Ltd. 2013-2022. All rights reserved.
+ * install-scripts licensed under the Mulan PSL v2.
+ * You can use this software according to the terms and conditions of the Mulan PSL v2.
+ * You may obtain a copy of Mulan PSL v2 at:
+ *     http://license.coscl.org.cn/MulanPSL2
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
+ * PURPOSE.
+ * See the Mulan PSL v2 for more details.
+ * Author: zhangqiumiao
+ * Create: 2022-02-28
+ * Description: Create partitions, Format partitions, Mount partitions
+!
 
-# Description: Create partitions, Format partitions, Mount partitions
+#!/bin/bash
 
 #config file
 DM_DEFAULT_PARTITION_CONF=${LOCAL_TEMPCFG_PATH}/default.part
@@ -367,8 +380,14 @@ function DM_FormatPartitionConf()
     if [ 1 -eq ${EFI_FLAG} ]; then
         efi_partition=`cat ${partition_config_file} | grep -w " /boot/efi "`
         if [ -z "${efi_partition}" ]; then
-            g_LOG_Error "UEFI boot, there must be a /boot/efi partition as ESP for boot."
-            return 1
+            if [ "x${arch}" == "xaarch64" ]; then
+                g_LOG_Error "UEFI boot, there must be a /boot/efi partition as ESP for boot."
+                return 1
+            else
+                BOOT_ESP="true"
+            fi
+        else
+            BOOT_ESP="false"
         fi
     fi
 
@@ -439,6 +458,12 @@ function DM_FormatPartitionConf()
             #It will be reported that FAT32 is not supported through grub2-probe detection
             if [ "${mount_point}" == "/boot/efi" ] && [ 1 -eq ${EFI_FLAG} ]; then
                 g_LOG_Info "UEFI boot, modify /boot/efi partition filesystem to fat16."
+                partition_filesystem="fat16"
+            fi
+
+	    #UEFI x86, if no /boot/efi, choose /boot as ESP partition
+            if [ "${mount_point}" == "/boot" ] && [ "x${BOOT_ESP}" == "xtrue" ]; then
+                g_LOG_Info "UEFI boot, modify /boot partition filesystem to fat16."
                 partition_filesystem="fat16"
             fi
 
