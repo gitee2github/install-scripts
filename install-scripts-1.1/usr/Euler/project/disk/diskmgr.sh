@@ -1,3 +1,4 @@
+#!/bin/bash
 :<<!
  * Copyright (c) Huawei Technologies Co., Ltd. 2013-2022. All rights reserved.
  * install-scripts licensed under the Mulan PSL v2.
@@ -8,12 +9,9 @@
  * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
- * Author: zhangqiumiao
  * Create: 2022-02-28
  * Description: Create partitions, Format partitions, Mount partitions
 !
-
-#!/bin/bash
 
 #config file
 DM_DEFAULT_PARTITION_CONF=${LOCAL_TEMPCFG_PATH}/default.part

@@ -1,3 +1,4 @@
+#!/bin/bash
 :<<!
 * Copyright (c) Huawei Technologies Co., Ltd. 2013-2022. All rights reserved.
 * install-scripts licensed under the Mulan PSL v2.
@@ -8,12 +9,9 @@
 * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
 * PURPOSE.
 * See the Mulan PSL v2 for more details.
-* Author: yanan-rock
 * Create: 2022-02-28
 * Description: the main installation program
 !
-
-#!/bin/bash
 
 # package list sdf file
 SI_OS_PACKAGE_SDF="$1"
@@ -710,7 +708,7 @@ function Setup_Grubpassword()
 {
     local crypt_grub_passwd=''
     local grub_default_file="${LOCAL_DISK_PATH}/etc/default/grub"
-    local user_cfg="${LOCAL_DISK_PATH}/${SI_GRUB2_PATH}/user.cfg"
+    local user_cfg="${LOCAL_DISK_PATH}${SI_GRUB2_PATH}/user.cfg"
 
     #set gurb root password
     if cat ${grub_default_file} | grep "^GRUB_PASSWORD" >/dev/null; then
@@ -724,6 +722,11 @@ function Setup_Grubpassword()
         return 1
     else
         echo "GRUB2_PASSWORD=${crypt_grub_passwd}" >> ${user_cfg}
+        chmod 600 ${user_cfg}
+        if [ $? -ne 0 ]; then
+	    g_LOG_Error "chmod user.cfg failed."
+	    return 1
+        fi
     fi
 
     return 0
