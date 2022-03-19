@@ -1,3 +1,4 @@
+#!/bin/bash
 :<<!
 * Copyright (c) Huawei Technologies Co., Ltd. 2013-2022. All rights reserved.
 * install-scripts licensed under the Mulan PSL v2.
@@ -8,12 +9,9 @@
 * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
 * PURPOSE.
 * See the Mulan PSL v2 for more details.
-* Author: yanan-rock
 * Create: 2022-02-28
 * Description: This script contains the miniOS log interfaces and generic utility functions
 !
-
-#!/bin/bash
 
 #templogFile
 LOG_FILE="/var/log/setup.log"
