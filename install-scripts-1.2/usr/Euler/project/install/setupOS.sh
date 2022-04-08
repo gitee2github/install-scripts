@@ -46,6 +46,11 @@ export SI_SYSTEMMAP
 MENU_VERSION=
 export MENU_VERSION
 
+#/etc/os-release in OS
+SI_OS_RELEASE=/etc/os-release
+OS_NAME=
+VENDOR=
+
 #OS.tar.gz包解压次数
 SI_UNCOMPRESS_TIME=1
 
@@ -60,11 +65,7 @@ SI_GRUB_PATH=/boot/grub
 
 GRUB_DIR=/usr/lib/grub
 GRUB2_DIR=/usr/lib/grub2
-if [ ${EFI_FLAG} -eq 1 ]; then
-    SI_GRUB2_PATH=/boot/efi/EFI/openEuler
-else
-    SI_GRUB2_PATH=/boot/grub2
-fi
+SI_GRUB2_PATH=
 GRUB2_EFI=EFI/grub2
 
 GRUB2_CMD="`which grub2-install`"
@@ -113,6 +114,11 @@ function SetupOS_ParserSdf()
         return 1
     fi
 
+    if [ ! -f "${SI_OS_RELEASE}" ]; then
+        g_LOG_Error "the ${SI_OS_RELEASE} is not exist."
+        return 1
+    fi
+
     SI_OSTARNAME="`INIT_Get_CmdLineParamValue 'name' ${SI_OS_PACKAGE_SDF}`"
     SI_VERSION="`INIT_Get_CmdLineParamValue 'kernelversion' ${SI_OS_PACKAGE_SDF}`"
     LOCAL_SI_VERSION="`INIT_Get_CmdLineParamValue 'localversion' ${SI_OS_PACKAGE_SDF}`"
@@ -120,12 +126,13 @@ function SetupOS_ParserSdf()
 
     euler_version="`INIT_Get_CmdLineParamValue 'eulerversion' ${SI_OS_PACKAGE_SDF}`"
     os_version="`INIT_Get_CmdLineParamValue 'os_version' ${SI_OS_PACKAGE_SDF}`"
+    OS_NAME="`INIT_Get_CmdLineParamValue 'NAME' ${SI_OS_RELEASE} | sed 's/\"//g'`"
     if [ ! -z "${euler_version}" ]; then
         MENU_VERSION=${euler_version}
     elif [ ! -z "${os_version}" ]; then
         MENU_VERSION=${os_version}
     else
-        MENU_VERSION="openEuler"
+        MENU_VERSION=${OS_NAME}
     fi
 
     if [ -z "$LOCAL_SI_VERSION" ]; then
@@ -596,7 +603,7 @@ function SetupOS_Grub2Install()
             mount -t efivarfs efivarfs /sys/firmware/efi/efivars
         fi
 
-        slot_id=`efibootmgr | grep -w "openEuler Linux" | awk -F "*" '{print $1}' | awk -F "Boot" '{print $2}'`
+        slot_id=`efibootmgr | grep -w "${OS_NAME}" | awk -F "*" '{print $1}' | awk -F "Boot" '{print $2}'`
 	if [ ! -z "${slot_id}" ]; then
             efibootmgr -b ${slot_id} -B
         fi
@@ -607,12 +614,12 @@ function SetupOS_Grub2Install()
         g_LOG_Debug "boot partition name is "${boot_devname}", boot partition id is "${boot_partition_id}""
 
         if [ "${arch}" = "aarch64" ]; then
-            efibootmgr -q -c -d ${SI_DISK} -p ${boot_partition_id} -w -L 'openEuler Linux' -l '\EFI\openEuler\grubaa64.efi'
+            efibootmgr -q -c -d ${SI_DISK} -p ${boot_partition_id} -w -L "${OS_NAME}" -l "\EFI\\${VENDOR}\grubaa64.efi"
         else
             if [ "x${BOOT_ESP}" = "xtrue" ]; then
-                efibootmgr -q -c -d ${SI_DISK} -p ${boot_partition_id} -w -L 'openEuler Linux' -l '\efi\EFI\openEuler\grubx64.efi'
+                efibootmgr -q -c -d ${SI_DISK} -p ${boot_partition_id} -w -L "${OS_NAME}" -l "\efi\EFI\\${VENDOR}\grubx64.efi"
             else
-                efibootmgr -q -c -d ${SI_DISK} -p ${boot_partition_id} -w -L 'openEuler Linux' -l '\EFI\openEuler\grubx64.efi'
+                efibootmgr -q -c -d ${SI_DISK} -p ${boot_partition_id} -w -L "${OS_NAME}" -l "\EFI\\${VENDOR}\grubx64.efi"
             fi
         fi
         if [ $? -ne 0 ]; then
@@ -1010,6 +1017,12 @@ function SetupOS_Install()
     if [ -f "${GRUB2_CMD}" ]; then
         #安装grub2#
         g_LOG_Info "${GRUB2_CMD} exist,install grub2 start."
+        VENDOR="`INIT_Get_CmdLineParamValue 'ID' ${SI_OS_RELEASE} | sed 's/\"//g'`"
+        if [ ${EFI_FLAG} -eq 1 ]; then
+            SI_GRUB2_PATH=/boot/efi/EFI/${VENDOR}
+        else
+            SI_GRUB2_PATH=/boot/grub2
+        fi
         SetupOS_Grub2Install
         if [ $? -ne 0 ]; then
             g_LOG_Error "Install grub2 failed."
