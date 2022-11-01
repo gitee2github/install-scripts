@@ -261,7 +261,7 @@ function tftp_download()
 
     if echo ${fileName} | grep -q ${FT_FILE_LIST} ;then
         #download filelist first
-        result=`${FT_TFTP} ${serverIp} ${serverPort} -c get ${sourceFile}/${filelist} ${targetFile} 2>&1`
+        result=`${FT_TFTP} -m binary ${serverIp} ${serverPort} -c get ${sourceFile}/${filelist} ${targetFile} 2>&1`
         if [ ! -z "${result}" ];then
             g_LOG_Error "${result}"
             g_LOG_Error "Download remote file [${FT_FILE_LIST}] failed, maybe it's not exist."
@@ -289,7 +289,7 @@ function tftp_download()
             fi
             echo "${line}" | grep "\/$" > /dev/null 2>&1
             if [ $? -ne 0 ];then
-                result=`${FT_TFTP} ${serverIp} ${serverPort} -c get ${sourceFile}/${line} ${targetDir}/${line} 2>&1`
+                result=`${FT_TFTP} -m binary ${serverIp} ${serverPort} -c get ${sourceFile}/${line} ${targetDir}/${line} 2>&1`
                 if [ ! -z "${result}" ]; then
                     rm -rf ${targetDir}/${line} > /dev/null 2>&1
                     g_LOG_Warn "${result}"
@@ -298,7 +298,7 @@ function tftp_download()
             fi
         done < ${targetFile}
     else
-        result=`${FT_TFTP} ${serverIp} ${serverPort} -c get ${sourceFile} ${targetFile} 2>&1`
+        result=`${FT_TFTP} -m binary ${serverIp} ${serverPort} -c get ${sourceFile} ${targetFile} 2>&1`
         if [ ! -z "${result}" ];then
             rm -rf ${targetFile} > /dev/null 2>&1
             g_LOG_Error "${result}"
@@ -315,7 +315,7 @@ function parseUrl()
     local serverUrl=
     local userName=
     local password=
-    local pattern="^[fF][iI][lL][eE]$|^[cC][dD]$|^[nN][fF][sS]$|^[fF][tT][pP]$|^[hH][tT][tT][pP]$|^[tT][fF][tT][pP]$"
+    local pattern="^[fF][iI][lL][eE]$|^[cC][dD]$|^[nN][fF][sS]$|^[cC][iI][fF][sS]$|^[fF][tT][pP]$|^[hH][tT][tT][pP]$|^[tT][fF][tT][pP]$"
     local ipPattern="^[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}$"
     local tmpPath=
     local TMP_PARAMS=
@@ -327,7 +327,7 @@ function parseUrl()
     serverUrl=$1
     FT_TRAN_PROTOCOL=`echo ${serverUrl} | awk -F ":" '{print $1}'`
     if ! echo ${FT_TRAN_PROTOCOL} | grep -q -E "${pattern}"; then
-        g_LOG_Error "The serverurl protocol must be cd, nfs, ftp, http or tftp"
+        g_LOG_Error "The serverurl protocol must be cd, nfs, cifs, ftp, http or tftp"
         return 1
     fi
     g_LOG_Debug "file transfer protocol is ${FT_TRAN_PROTOCOL}"

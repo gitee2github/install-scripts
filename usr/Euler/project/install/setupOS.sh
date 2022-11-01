@@ -813,6 +813,16 @@ function SetupOS_GrubCfg()
         sed -i "s/${title_str}/${MENU_VERSION}/g" ${grub_cfg}
     fi
 
+    if cat /proc/cmdline | grep "product=mbsc" &>/dev/null; then
+        g_LOG_Info "copy ${LOCAL_CONFIG_PATH}/grub.cfg to ${LOCAL_DISK_PATH}${SI_GRUB2_PATH}"
+        cp -af ${LOCAL_CONFIG_PATH}/grub.cfg ${LOCAL_DISK_PATH}${SI_GRUB2_PATH} >> ${OTHER_TTY} 2>&1
+        chmod 600 ${grub_cfg}
+        if [ $? -ne 0 ]; then
+            g_LOG_Error "chmod grub.cfg failed."
+            return 1
+        fi
+    fi
+
     g_LOG_Notice "instsall OS grub.cfg success."
 
     return 0
@@ -904,6 +914,52 @@ function SetupOS_Menulst()
     fi
 
     return 0
+}
+
+#########################################################
+#   Description:    SetupOS_LoadSourceToDisk
+#   Input           none
+#   Return:         0: SUCCESS
+#                   1: Internal Error.
+#########################################################
+function SetupOS_LoadSourceToDisk()
+{
+    local cmdline=/proc/cmdline
+ 
+    pxecfg_path="`INIT_Get_CmdLineParamValue 'install_saveosdir' ${cmdline}`"
+    if [ -z "${pxecfg_path}" ]; then
+        g_LOG_Notice "The install_saveosdir parameter is not set so we can not copy the source file to the target disk."
+        return 0
+    fi
+ 
+    g_LOG_Debug "Load source to disk ..."
+    if [ ! -d ${LOCAL_DISK_PATH}/${pxecfg_path} ]; then
+        mkdir -p ${LOCAL_DISK_PATH}/${pxecfg_path}
+        if [ $? -ne 0 ]; then
+            g_LOG_Error "Create directory ${LOCAL_DISK_PATH}/${pxecfg_path} failed."
+            return 1
+        fi
+    fi
+ 
+    dirtype=$(df -hT ${LOCAL_DISK_PATH}/${pxecfg_path} | sed -n 2p | awk '{print $1}' | grep "\/dev")
+    if [ -z ${dirtype} ]; then
+        g_LOG_Error "Directory ${pxecfg_path} is not in a disk"
+        return 1
+    fi
+ 
+    partition_size=$(df -lm ${LOCAL_DISK_PATH}/${pxecfg_path} | sed -n 2p | awk '{print $4}')
+    file_size=$(du -m ${LOCAL_SOURCE_PATH}/ | awk '{print $1}')
+    if [ ${file_size} -ge ${partition_size} ]; then
+        g_LOG_Error "Direcotry ${pxecfg_path} space is not enough to store source files."
+        return 1
+    fi
+ 
+    cp -ap ${LOCAL_SOURCE_PATH}/* ${LOCAL_DISK_PATH}/${pxecfg_path}
+    if [ $? -ne 0 ]; then
+        g_LOG_Error "Copy ${SI_OSTARNAME} to ${LOCAL_DISK_PATH}/${pxecfg_path} failed."
+        return 1
+    fi
+    g_LOG_Debug "Copy ${SI_OSTARNAME} to ${LOCAL_DISK_PATH}/${pxecfg_path} success"
 }
 
 #########################################################
@@ -1049,6 +1105,8 @@ function SetupOS_Install()
         fi
     fi
 
+    SetupOS_LoadSourceToDisk
+
     #拷贝new.part到/etc目录中，用于下次安装进行分区比较
     if [ -f "${LOCAL_TEMPCFG_PATH}/new.part" ] && [ -d "${LOCAL_DISK_PATH}/etc" ]; then
         g_LOG_Info "copy ${LOCAL_TEMPCFG_PATH}/new.part to ${LOCAL_DISK_PATH}/etc"
@@ -1099,13 +1157,18 @@ function SetupOS()
     esac
 }
 
-
-if [ ! -z "`cat /proc/mounts | grep " ${LOCAL_DISK_PATH} "`" ]; then
+if cat /proc/cmdline | grep "product=mbsc" &>/dev/null; then
+    g_LOG_Info "start mbsc SetupOS"
     SetupOS
     ret=$?
 else
-    g_LOG_Error "${LOCAL_DISK_PATH} is not mounted."
-    ret=1
+    if [ ! -z "`cat /proc/mounts | grep " ${LOCAL_DISK_PATH} "`" ]; then
+        SetupOS
+        ret=$?
+    else
+        g_LOG_Error "${LOCAL_DISK_PATH} is not mounted."
+        ret=1
+    fi
 fi
 
 exit ${ret}
