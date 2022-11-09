@@ -126,6 +126,7 @@ function INIT_Setup_Main()
     local tmp=
     local sysconfig_conf=`basename ${SYSCONFIG_CONF}`
     local cmdline=/proc/cmdline
+    local pstore_files=
 
     #initialize the drivers
     ${INIT_MODULES}
@@ -195,6 +196,13 @@ function INIT_Setup_Main()
         return 1
     fi
     g_LOG_Notice "Initializing environment success."
+
+    if [ -d /sys/fs/pstore ]; then
+        g_LOG_Info "Removing files stored in nonvolatile ram created by the pstore subsystem..."
+        pstore_files=`find /sys/fs/pstore/ -type f`
+        g_LOG_Debug "Removing files: [${pstore_files}]"
+        find /sys/fs/pstore/ -type f -delete
+    fi
 
     INIT_Execute_Hook ${BEFORE_PARTITION_HOOK_PATH} ${PARTITION_CONF}
     if [ $? -ne 0 ]; then

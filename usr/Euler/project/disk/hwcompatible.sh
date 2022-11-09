@@ -16,6 +16,7 @@
 #machine type
 CON_MACHINE_TYPE_GENERAL="general"
 CON_MACHINE_TYPE_HP="hp"
+CON_MACHINE_TYPE_RED3="red3"
 
 #version for kernel and crash kernel
 CON_KERNEL_TYPE_XEN="xen"
@@ -35,6 +36,8 @@ function DM_GetMachineType()
     #get machine type
     if [ ! -z "`ls -l /sys/block | grep "c0d"`" ]; then
         machine_type=${CON_MACHINE_TYPE_HP}
+    elif [ ! -z "`ls -l /sys/block | grep "md"`" ]; then
+        machine_type=${CON_MACHINE_TYPE_RED3}
     else
         machine_type=${CON_MACHINE_TYPE_GENERAL}
     fi
@@ -76,8 +79,15 @@ function DM_GetPartitionName()
     ${CON_MACHINE_TYPE_HP})
         echo "${disk_dev}p${partition_count}"
     ;;
+    ${CON_MACHINE_TYPE_RED3})
+        echo "${disk_dev}p${partition_count}"
+    ;;
     *)
-        echo "${disk_dev}${partition_count}"
+        if [[ ${disk_dev} == /dev/nvme* ]]; then
+            echo "${disk_dev}p${partition_count}"
+        else
+            echo "${disk_dev}${partition_count}"
+        fi
     ;;
     esac
 
@@ -115,8 +125,15 @@ function DM_GetPartitionNumber()
     ${CON_MACHINE_TYPE_HP})
         echo "${partition_name}" | sed "s ${disk_dev}p  "
     ;;
+    ${CON_MACHINE_TYPE_RED3})
+        echo "${partition_name}" | sed "s ${disk_dev}p  "
+    ;;
     *)
-        echo "${partition_name}" | sed "s ${disk_dev}  "
+        if [[ ${disk_dev} == /dev/nvme* ]]; then
+            echo "${partition_name}" | sed "s ${disk_dev}p  "
+        else
+            echo "${partition_name}" | sed "s ${disk_dev}  "
+        fi
     ;;
     esac
 
@@ -152,6 +169,9 @@ function DM_GetPartitionById()
     case ${machine_type} in
     ${CON_MACHINE_TYPE_HP})
         partition_by_id="`echo "${partition_by_id}" | grep "^cciss"`"
+    ;;
+    ${CON_MACHINE_TYPE_RED3})
+        partition_by_id="`echo "${partition_by_id}" | grep "^md-uuid"`"
     ;;
     *)
         partition_by_id_tmp=${partition_by_id}
@@ -265,8 +285,20 @@ function DM_GetGrubInfo()
             command="`printf "%d" "'${harddisk_id}"` - `printf "%d" "'0"`"
             disk_dev="`hwinfo --disk --short | awk '{print $1}' | grep -w "${disk_dev}"`"
         ;;
+        ${CON_MACHINE_TYPE_RED3})
+            first_disk="`DM_Get_FirstDiskName`"
+            first_disk_id="`echo ${first_disk} | awk '{print substr($NF,length($NF),1)}'`"
+            disk_dev="`echo ${partition_info} | awk -F "/" '{print $NF}' | sed "s p${partition_id}$  "`"
+            harddisk_id="`echo ${disk_dev} | awk '{print substr($NF,length($NF),1)}'`"
+            command="`printf "%d" "'${harddisk_id}"` - `printf "%d" "'${first_disk_id}"`"
+            disk_dev="/dev/${disk_dev}"
+        ;;
         *)
-            disk_dev="`echo ${partition_info} | awk -F "/" '{print $NF}' | sed "s ${partition_id}$  "`"
+            if [[ ${partition_info} == */nvme* ]]; then
+                disk_dev="`echo ${partition_info} | awk -F "/" '{print $NF}' | sed "s p${partition_id}$  "`"
+            else
+                disk_dev="`echo ${partition_info} | awk -F "/" '{print $NF}' | sed "s ${partition_id}$  "`"
+            fi
             harddisk_id="`echo ${disk_dev} | awk '{print substr($NF,length($NF),1)}'`"
             command="`printf "%d" "'${harddisk_id}"` - `printf "%d" "'a"`"
             disk_dev="`hwinfo --disk --short | awk '{print $1}' | grep -w "${disk_dev}"`"
@@ -281,8 +313,19 @@ function DM_GetGrubInfo()
             harddisk_id="`echo ${disk_dev} | awk -F "/" '{print substr($NF,length($NF),1)}'`"
             command="`printf "%d" "'${harddisk_id}"` - `printf "%d" "'0"`"
         ;;
+        ${CON_MACHINE_TYPE_RED3})
+            first_disk="`DM_Get_FirstDiskName`"
+            first_disk_id="`echo ${first_disk} | awk '{print substr($NF,length($NF),1)}'`"
+            disk_dev="`echo ${partition_name} | sed "s p${partition_id}$  "`"
+            harddisk_id="`echo ${disk_dev} | awk -F "/" '{print substr($NF,length($NF),1)}'`"
+            command="`printf "%d" "'${harddisk_id}"` - `printf "%d" "'${first_disk_id}"`"
+        ;;
         *)
-            disk_dev="`echo ${partition_name} | sed "s ${partition_id}$  "`"
+            if [[ ${partition_name} == */nvme* ]]; then
+                disk_dev="`echo ${partition_name} | sed "s p${partition_id}$  "`"
+            else
+                disk_dev="`echo ${partition_name} | sed "s ${partition_id}$  "`"
+            fi
             harddisk_id="`echo ${disk_dev} | awk -F "/" '{print substr($NF,length($NF),1)}'`"
             command="`printf "%d" "'${harddisk_id}"` - `printf "%d" "'a"`"
         ;;

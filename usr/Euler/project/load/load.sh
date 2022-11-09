@@ -20,12 +20,12 @@ MODPROBE="`which modprobe`"
 MKFS_EXT3="`which mkfs.ext3`"
 MOUNT="`which mount`"
 ######################################################
-#function g_LOAD_CONFIG
+#function g_Load_Config
 #input none
-#dataAccess $CFG_SERVER_URL $LOCAL_CONFIG_PATH
+#dataAcess $CFG_SERVER_URL $LOCAL_CONFIG_PATH
 #           LOCAL_TEMPCFG_PATH
 ######################################################
-function g_LOAD_CONFIG
+function g_Load_Config
 {
     local returnValue
     g_LOG_Info "begin load config file"
@@ -65,7 +65,7 @@ function g_LOAD_CONFIG
 ######################################################
 #function g_LOAD_Os
 #description load os repo to targetdir
-#dataAccess $REPO_SERVER_URL $LOCAL_SOURCE_PATH
+#dataAcess $REPO_SERVER_URL $LOCAL_SOURCE_PATH
 ######################################################
 function g_Load_Os
 {
@@ -82,7 +82,7 @@ function g_Load_Os
     fi
 
     if [ -n "${REPO_SERVER_URL}" -a -n "${LOCAL_SOURCE_PATH}" ];then
-        INIT_RAMDISK
+        INIT_Ramdisk
         if [ $? -ne 0 ];then
             g_LOG_Error "init load os storage error"
 	    return 1
@@ -114,7 +114,7 @@ function g_Load_Os
 		 LOCAL_SOURCE_PATH="$LOCAL_SOURCE_PATH/repo"
              fi
         else
-           LOCAL_SOURCE_PATH="$LOCAL_SOURCE_PATH/repo"		
+           LOCAL_SOURCE_PATH="$LOCAL_SOURCE_PATH/repo"
         fi
     else
 	    returnValue=1
@@ -126,7 +126,7 @@ function g_Load_Os
 ##########################################################
 #description init a ramdisk and mount 2 $LOCAL_SOURCE_PATH
 ##########################################################
-function INIT_RAMDISK()
+function INIT_Ramdisk()
 {
     $MODPROBE brd rd_size=3072000 rd_nr=1 max_part=1 >>$OTHER_TTY 2>&1
     if [ -b /dev/ram0 ];then
@@ -136,7 +136,7 @@ function INIT_RAMDISK()
 	    g_LOG_Error "mkdir $LOCAL_SOURCE_PATH failed"
 	    return 1
 	fi
-	
+
 	$MOUNT -t ext3 /dev/ram0 $LOCAL_SOURCE_PATH >>$OTHER_TTY 2>&1
 	if [ $? -ne 0 ]; then
 	    g_LOG_Error "mount /dev/ram0 to $LOCAL_SOURCE_PATH error"
